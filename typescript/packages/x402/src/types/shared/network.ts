@@ -3,6 +3,7 @@ import { z } from "zod";
 export const NetworkSchema = z.enum([
   "abstract",
   "abstract-testnet",
+  "sepolia",
   "base-sepolia",
   "base",
   "avalanche-fuji",
@@ -15,6 +16,7 @@ export const NetworkSchema = z.enum([
   "polygon",
   "polygon-amoy",
   "peaq",
+  "mainnet",
 ]);
 export type Network = z.infer<typeof NetworkSchema>;
 
@@ -22,6 +24,7 @@ export type Network = z.infer<typeof NetworkSchema>;
 export const SupportedEVMNetworks: Network[] = [
   "abstract",
   "abstract-testnet",
+  "sepolia",
   "base-sepolia",
   "base",
   "avalanche-fuji",
@@ -32,10 +35,12 @@ export const SupportedEVMNetworks: Network[] = [
   "polygon",
   "polygon-amoy",
   "peaq",
+  "mainnet",
 ];
 export const EvmNetworkToChainId = new Map<Network, number>([
   ["abstract", 2741],
   ["abstract-testnet", 11124],
+  ["sepolia", 11155111],
   ["base-sepolia", 84532],
   ["base", 8453],
   ["avalanche-fuji", 43113],
@@ -46,6 +51,7 @@ export const EvmNetworkToChainId = new Map<Network, number>([
   ["polygon", 137],
   ["polygon-amoy", 80002],
   ["peaq", 3338],
+  ["mainnet", 1],
 ]);
 
 // svm
