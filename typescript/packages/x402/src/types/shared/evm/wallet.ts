@@ -11,9 +11,11 @@ import type {
   LocalAccount,
 } from "viem";
 import {
+  mainnet,
   sepolia,
   avalancheFuji,
   base,
+  baseSepolia,
   sei,
   seiTestnet,
   polygon,
@@ -24,6 +26,8 @@ import {
   iotex,
   abstract,
   abstractTestnet,
+  filecoin,
+  filecoinCalibration,
 } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { Hex } from "viem";
@@ -196,12 +200,16 @@ export function getChainFromNetwork(network: string | undefined): Chain {
   }
 
   switch (network) {
+    case "mainnet":
+      return mainnet;
     case "abstract":
       return abstract;
     case "abstract-testnet":
       return abstractTestnet;
     case "base":
       return base;
+    case "base-sepolia":
+      return baseSepolia;
     case "sepolia":
       return sepolia;
     case "avalanche":
@@ -222,6 +230,10 @@ export function getChainFromNetwork(network: string | undefined): Chain {
       return iotex;
     case "iotex-testnet":
       return iotexTestnet;
+    case "filecoin":
+      return filecoin;
+    case "filecoin-calibration":
+      return filecoinCalibration;
     default:
       throw new Error(`Unsupported network: ${network}`);
   }
