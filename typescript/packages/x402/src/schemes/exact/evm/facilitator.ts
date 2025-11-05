@@ -1,4 +1,13 @@
-import { Account, Address, Chain, getAddress, Hex, parseErc6492Signature, Transport } from "viem";
+import {
+  Account,
+  Address,
+  Chain,
+  getAddress,
+  Hex,
+  parseErc6492Signature,
+  Transport,
+  verifyTypedData,
+} from "viem";
 import { getNetworkId } from "../../../shared";
 import { getVersion, getERC20Balance } from "../../../shared/evm";
 import {
@@ -7,6 +16,7 @@ import {
   config,
   ConnectedClient,
   SignerWallet,
+  feeReceiverABI,
 } from "../../../types/shared/evm";
 import {
   PaymentPayload,
@@ -75,7 +85,8 @@ export async function verify<
     name = paymentRequirements.extra?.name ?? config[chainId.toString()].usdcName;
     erc20Address = paymentRequirements.asset as Address;
     version = paymentRequirements.extra?.version ?? (await getVersion(client));
-  } catch {
+  } catch (e) {
+    console.error("ERROR in verification setup:", e);
     return {
       isValid: false,
       invalidReason: `invalid_network`,
@@ -83,9 +94,13 @@ export async function verify<
     };
   }
   // Verify permit signature is recoverable for the owner address
+  // Use ReceiveWithAuthorization for FeeReceiver contract, TransferWithAuthorization otherwise
+  const useFeeReceiver = paymentRequirements.extra?.useFeeReceiver === true;
+  const primaryType = useFeeReceiver ? "ReceiveWithAuthorization" : "TransferWithAuthorization";
+
   const permitTypedData = {
     types: authorizationTypes,
-    primaryType: "TransferWithAuthorization" as const,
+    primaryType: primaryType as "TransferWithAuthorization" | "ReceiveWithAuthorization",
     domain: {
       name,
       version,
@@ -101,15 +116,28 @@ export async function verify<
       nonce: exactEvmPayload.authorization.nonce,
     },
   };
-  const recoveredAddress = await client.verifyTypedData({
-    address: exactEvmPayload.authorization.from as Address,
-    ...permitTypedData,
-    signature: exactEvmPayload.signature as Hex,
-  });
-  if (!recoveredAddress) {
+
+  let isValidSignature;
+  try {
+    // Use standalone verifyTypedData function instead of client method
+    isValidSignature = await verifyTypedData({
+      address: exactEvmPayload.authorization.from as Address,
+      ...permitTypedData,
+      signature: exactEvmPayload.signature as Hex,
+    });
+  } catch (e) {
+    console.error("ERROR verifying typed data:", e);
     return {
       isValid: false,
-      invalidReason: "invalid_exact_evm_payload_signature", //"Invalid permit signature",
+      invalidReason: "invalid_exact_evm_payload_signature",
+      payer: exactEvmPayload.authorization.from,
+    };
+  }
+
+  if (!isValidSignature) {
+    return {
+      isValid: false,
+      invalidReason: "invalid_exact_evm_payload_signature",
       payer: exactEvmPayload.authorization.from,
     };
   }
@@ -204,21 +232,63 @@ export async function settle<transport extends Transport, chain extends Chain>(
   // Returns the original signature (no-op) if the signature is not a 6492 signature
   const { signature } = parseErc6492Signature(payload.signature as Hex);
 
-  const tx = await wallet.writeContract({
-    address: paymentRequirements.asset as Address,
-    abi,
-    functionName: "transferWithAuthorization" as const,
-    args: [
-      payload.authorization.from as Address,
-      payload.authorization.to as Address,
-      BigInt(payload.authorization.value),
-      BigInt(payload.authorization.validAfter),
-      BigInt(payload.authorization.validBefore),
-      payload.authorization.nonce as Hex,
-      signature,
-    ],
-    chain: wallet.chain as Chain,
-  });
+  // Check if we're using the FeeReceiver contract
+  const useFeeReceiver = paymentRequirements.extra?.useFeeReceiver === true;
+
+  let tx: `0x${string}`;
+
+  if (useFeeReceiver) {
+    // Extract merchant info and fee from payment requirements
+    const merchant = paymentRequirements.extra?.merchant as Address;
+    const totalAmount = BigInt(payload.authorization.value);
+
+    if (!merchant) {
+      throw new Error("Merchant address not found in payment requirements");
+    }
+
+    // Split signature into v, r, s components
+    const sig = signature.slice(2); // Remove 0x prefix
+    const r = `0x${sig.slice(0, 64)}` as Hex;
+    const s = `0x${sig.slice(64, 128)}` as Hex;
+    const v = parseInt(sig.slice(128, 130), 16);
+
+    // Call FeeReceiver contract's settleWithAuthorization
+    tx = await wallet.writeContract({
+      address: paymentRequirements.payTo as Address, // This is the FeeReceiver contract address
+      abi: feeReceiverABI,
+      functionName: "settleWithAuthorization",
+      args: [
+        paymentRequirements.asset as Address, // token
+        payload.authorization.from as Address, // payer
+        merchant, // merchant
+        totalAmount, // totalAmount
+        BigInt(payload.authorization.validAfter), // validAfter
+        BigInt(payload.authorization.validBefore), // validBefore
+        payload.authorization.nonce as Hex, // nonce
+        v, // v
+        r, // r
+        s, // s
+      ],
+      chain: wallet.chain as Chain,
+    });
+  } else {
+    // Original flow: direct transferWithAuthorization
+    tx = await wallet.writeContract({
+      address: paymentRequirements.asset as Address,
+      abi,
+      functionName: "transferWithAuthorization" as const,
+      args: [
+        payload.authorization.from as Address,
+        payload.authorization.to as Address,
+        BigInt(payload.authorization.value),
+        BigInt(payload.authorization.validAfter),
+        BigInt(payload.authorization.validBefore),
+        payload.authorization.nonce as Hex,
+        signature,
+      ],
+      chain: wallet.chain as Chain,
+    });
+  }
 
   const receipt = await wallet.waitForTransactionReceipt({ hash: tx });
 

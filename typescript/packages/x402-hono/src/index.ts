@@ -10,6 +10,8 @@ import {
   toJsonSafe,
 } from "x402/shared";
 import { getPaywallHtml } from "x402/paywall";
+import { isTestnetNetwork } from "x402/types";
+import type { Network } from "x402/types";
 import {
   ERC20TokenAmount,
   FacilitatorConfig,
@@ -36,12 +38,12 @@ import { useFacilitator } from "x402/verify";
  *
  * @example
  * ```typescript
- * // Simple configuration - All endpoints are protected by $0.01 of USDC on base-sepolia
+ * // Simple configuration - All endpoints are protected by $0.01 of USDC on sepolia
  * app.use(paymentMiddleware(
  *   '0x123...', // payTo address
  *   {
  *     price: '$0.01', // USDC amount in dollars
- *     network: 'base-sepolia'
+ *     network: 'sepolia'
  *   },
  *   // Optional facilitator configuration. Defaults to x402.org/facilitator for testnet usage
  * ));
@@ -217,7 +219,7 @@ export function paymentMiddleware(
               typeof getPaywallHtml
             >[0]["paymentRequirements"],
             currentUrl,
-            testnet: network === "base-sepolia",
+            testnet: isTestnetNetwork(network as Network),
             cdpClientKey: paywall?.cdpClientKey,
             appName: paywall?.appName,
             appLogo: paywall?.appLogo,

@@ -11,9 +11,11 @@ import type {
   LocalAccount,
 } from "viem";
 import {
-  baseSepolia,
+  mainnet,
+  sepolia,
   avalancheFuji,
   base,
+  baseSepolia,
   sei,
   seiTestnet,
   polygon,
@@ -24,6 +26,8 @@ import {
   iotex,
   abstract,
   abstractTestnet,
+  filecoin,
+  filecoinCalibration,
 } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { Hex } from "viem";
@@ -70,15 +74,11 @@ export function createConnectedClient(
 /**
  * Creates a public client configured for the Base Sepolia testnet
  *
- * @deprecated Use `createConnectedClient("base-sepolia")` instead
+ * @deprecated Use `createConnectedClient("sepolia")` instead
  * @returns A public client instance connected to Base Sepolia
  */
-export function createClientSepolia(): ConnectedClient<Transport, typeof baseSepolia, undefined> {
-  return createConnectedClient("base-sepolia") as ConnectedClient<
-    Transport,
-    typeof baseSepolia,
-    undefined
-  >;
+export function createClientSepolia(): ConnectedClient<Transport, typeof sepolia, undefined> {
+  return createConnectedClient("sepolia") as ConnectedClient<Transport, typeof sepolia, undefined>;
 }
 
 /**
@@ -125,12 +125,12 @@ export function createSigner(network: string, privateKey: Hex): SignerWallet<Cha
 /**
  * Creates a wallet client configured for the Base Sepolia testnet with a private key
  *
- * @deprecated Use `createSigner("base-sepolia", privateKey)` instead
+ * @deprecated Use `createSigner("sepolia", privateKey)` instead
  * @param privateKey - The private key to use for signing transactions
  * @returns A wallet client instance connected to Base Sepolia with the provided private key
  */
-export function createSignerSepolia(privateKey: Hex): SignerWallet<typeof baseSepolia> {
-  return createSigner("base-sepolia", privateKey) as SignerWallet<typeof baseSepolia>;
+export function createSignerSepolia(privateKey: Hex): SignerWallet<typeof sepolia> {
+  return createSigner("sepolia", privateKey) as SignerWallet<typeof sepolia>;
 }
 
 /**
@@ -200,6 +200,8 @@ export function getChainFromNetwork(network: string | undefined): Chain {
   }
 
   switch (network) {
+    case "mainnet":
+      return mainnet;
     case "abstract":
       return abstract;
     case "abstract-testnet":
@@ -208,6 +210,8 @@ export function getChainFromNetwork(network: string | undefined): Chain {
       return base;
     case "base-sepolia":
       return baseSepolia;
+    case "sepolia":
+      return sepolia;
     case "avalanche":
       return avalanche;
     case "avalanche-fuji":
@@ -226,6 +230,10 @@ export function getChainFromNetwork(network: string | undefined): Chain {
       return iotex;
     case "iotex-testnet":
       return iotexTestnet;
+    case "filecoin":
+      return filecoin;
+    case "filecoin-calibration":
+      return filecoinCalibration;
     default:
       throw new Error(`Unsupported network: ${network}`);
   }
